@@ -1,0 +1,178 @@
+﻿<br />
+<br />
+<div class="container" style="background-image: url('@ViewBag.Background');  border-color: black; border-width: 8px; border-style: solid;">
+    <!-- Nav tabs -->
+    <div class="row">
+        <ul class="nav nav-tabs" style="background-color: white;">
+            <li><a>@@@ViewBag.ScreenName</a></li>
+            <li><a>Tweet's - @ViewBag.Tweets</a></li>
+            <li><a>Seguindo - @ViewBag.Amigos</a></li>
+            <li><a>Seguidores - @ViewBag.Seguidores</a></li>
+        </ul>
+    </div>
+    <br />
+
+
+    <div class="row">
+        <div class="col-sm-3">
+            <img src="@( ViewBag.Img).jpeg" class="img-thumbnail" />
+            <h2>@ViewBag.Nome</h2>
+            <h4>@ViewBag.Descricao</h4>
+        </div>
+
+        <div class="col-sm-offset-3">
+            <div class="panel panel-info col-lg-offset-1" style="width: 620px; margin-left: 9.833333333333339%">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Novo Tweet</h3>
+                </div>
+                <div class="panel-body" style="height: 160px">
+                    <label for="inputEmail3" class="col-sm-2 control-label">Tweet</label>
+                    <div class="col-sm-8">
+                        <textarea class="form-control" rows="3" placeholder="Máximo de 140 Caracteres" id="msg-post" maxlength="140"></textarea>
+                        <span id="conta-palavras" class="pull-right" data-bind="text: palavraDigitadas"></span>
+                        <br />
+                        <button type="button" class="btn btn-success" id="enviar-twit">Twittear</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="col-lg-offset-1 col-sm-9">
+                <div class="panel panel-info">
+                    <div class="panel-heading">
+
+                        <h3 class="panel-title">Tweets
+                            <button type="button" class="pull-right btn btn-success btn-xs" data-bind="click: updateTweets" title="Atualiza Tweets"><span class="glyphicon glyphicon-refresh"></span></button>
+                        </h3>
+                    </div>
+                    <div class="panel-body">
+                        <table class="table table-striped">
+                            <tbody data-bind="foreach: tweets">
+                                <tr class="text-center">
+                                    <td><span data-bind="text: Nome"></span><i>&nbsp;&nbsp;<b style="color: gray;">@@</b><span data-bind="text: ScreenName" style="color: gray;"></span></i></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <img data-bind="attr: {src: Img()}" align="left" class="img-circle" style="width: 40px; height: 40px" />
+                                        <p align="center" data-bind="html: Texto"></p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        </form>
+    </div>
+</div>
+
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        toastr.options = {
+            "closeButton": true,
+            "debug": false,
+            "positionClass": "toast-bottom-right",
+            "onclick": null,
+            "showDuration": "300",
+            "hideDuration": "1000",
+            "timeOut": "0",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        };
+    });
+
+
+    $('#enviar-twit').click(function () {
+        $.post('Post', { msg: $('#msg-post').val() }, function (data) {
+            if (data.OK == "Tweet Enviado com Sucesso") {
+                toastr.success("Tweet enviado", "Sucesso");
+                $('#msg-post').val("");
+                viewModel.palavraDigitadas(140);
+                viewModel.updateTweets();
+            } else {
+                toastr.error("Houve um erro no envio =(", "Falha");
+            }
+
+        });
+    });
+
+    $('#msg-post').keypress(function () {
+        if (viewModel.palavraDigitadas() > 0) {
+            //viewModel.palavraDigitadas(viewModel.palavraDigitadas() - 1);
+            viewModel.palavraDigitadas(140 - eval($('#msg-post').val().length));
+        }
+    });
+
+    $('#msg-post').bind('paste', function () {
+        setTimeout(function () {
+            if (viewModel.palavraDigitadas() > 0) {
+                viewModel.palavraDigitadas(140 - eval($('#msg-post').val().length - 1));
+            }
+        }, 10);
+
+    });
+
+    $('#msg-post').keyup(function () {
+        if (viewModel.palavraDigitadas() > 0) {
+            viewModel.palavraDigitadas(140 - eval($('#msg-post').val().length));
+        }
+    });
+
+    Tweet = function (data) {
+        this.Nome = ko.observable(data.Author.Name);
+        this.Img = ko.observable(data.Author.ProfileImageUrlHttps);
+        this.ScreenName = ko.observable(data.Author.ScreenName);
+        //this.Texto = ko.observable(data.TextDecoded);
+        this.Texto = ko.observable(data.TextAsHtml);
+    };
+
+    var viewModel = {
+        tweets: ko.observableArray([]),
+        palavraDigitadas: ko.observable(140),
+        lastUpdate: ko.observable(),
+
+        listaTweets: function () {
+            viewModel.tweets.removeAll();
+            $.post('ListTweets', function (data) {
+                if (data.tweets == null) {
+                    toastr.error("Infelizmente o twitter esta nos trollando, tente novamente mais tarde!", "Que Feio Twitter");
+                } else {
+                    viewModel.lastUpdate(data.tweets[0].CreatedDate.substring(6, data.tweets[0].CreatedDate.length - 2));
+                    $.each(data.tweets, function (index, value) {
+                        viewModel.tweets.push(new Tweet(value));
+                    });
+                }
+            });
+        },
+
+        updateTweets: function () {
+            $.post('ListTweets', function (data) {
+                if (data.tweets == null) {
+                    toastr.error("Infelizmente o twitter esta nos trollando, tente novamente mais tarde!", "Que Feio Twitter");
+                } else {
+                    $.each(data.tweets, function(index, value) {
+                        var dataNewTweet = eval(value.CreatedDate.substring(6, value.CreatedDate.length - 2));
+                        var dataOldTweet = eval(viewModel.lastUpdate());
+                        if (dataNewTweet > dataOldTweet) {
+                            viewModel.tweets.unshift(new Tweet(value));
+                        }
+                    });
+                    viewModel.lastUpdate(data.tweets[0].CreatedDate.substring(6, data.tweets[0].CreatedDate.length - 2));
+                    console.log(data);
+                }
+            });
+        },
+    };
+
+    ko.applyBindings(viewModel);
+    viewModel.listaTweets();
+
+</script>
